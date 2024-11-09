@@ -16,19 +16,20 @@
 # under the License.
 # isort:skip_file
 """Unit tests for Superset cache warmup"""
-from unittest.mock import MagicMock
+
+from unittest.mock import MagicMock  # noqa: F401
 from tests.integration_tests.fixtures.birth_names_dashboard import (
-    load_birth_names_dashboard_with_slices,
-    load_birth_names_data,
+    load_birth_names_dashboard_with_slices,  # noqa: F401
+    load_birth_names_data,  # noqa: F401
 )
 
-from sqlalchemy import String, Date, Float
+from sqlalchemy import String, Date, Float  # noqa: F401
 
 import pytest
-import pandas as pd
+import pandas as pd  # noqa: F401
 
-from superset.models.slice import Slice
-from superset.utils.database import get_example_database
+from superset.models.slice import Slice  # noqa: F401
+from superset.utils.database import get_example_database  # noqa: F401
 
 from superset import db
 
@@ -38,18 +39,18 @@ from superset.tasks.cache import (
     DashboardTagsStrategy,
     TopNDashboardsStrategy,
 )
-from superset.utils.urls import get_url_host
+from superset.utils.urls import get_url_host  # noqa: F401
 
 from tests.integration_tests.base_tests import SupersetTestCase
 from tests.integration_tests.constants import ADMIN_USERNAME
 from tests.integration_tests.dashboard_utils import (
-    create_dashboard,
-    create_slice,
-    create_table_metadata,
+    create_dashboard,  # noqa: F401
+    create_slice,  # noqa: F401
+    create_table_metadata,  # noqa: F401
 )
 from tests.integration_tests.fixtures.unicode_dashboard import (
-    load_unicode_dashboard_with_slice,
-    load_unicode_data,
+    load_unicode_dashboard_with_slice,  # noqa: F401
+    load_unicode_data,  # noqa: F401
 )
 
 
@@ -85,7 +86,7 @@ class TestCacheWarmUp(SupersetTestCase):
         expected = [
             {"chart_id": chart.id, "dashboard_id": dash.id} for chart in dash.slices
         ]
-        self.assertCountEqual(result, expected)
+        self.assertCountEqual(result, expected)  # noqa: PT009
 
     def reset_tag(self, tag):
         """Remove associated object from tag, used to reset tests"""
@@ -105,7 +106,7 @@ class TestCacheWarmUp(SupersetTestCase):
         strategy = DashboardTagsStrategy(["tag1"])
         result = strategy.get_payloads()
         expected = []
-        self.assertEqual(result, expected)
+        assert result == expected
 
         # tag dashboard 'births' with `tag1`
         tag1 = get_tag("tag1", db.session, TagType.custom)
@@ -117,7 +118,7 @@ class TestCacheWarmUp(SupersetTestCase):
         db.session.add(tagged_object)
         db.session.commit()
 
-        self.assertCountEqual(strategy.get_payloads(), tag1_urls)
+        self.assertCountEqual(strategy.get_payloads(), tag1_urls)  # noqa: PT009
 
         strategy = DashboardTagsStrategy(["tag2"])
         tag2 = get_tag("tag2", db.session, TagType.custom)
@@ -125,7 +126,7 @@ class TestCacheWarmUp(SupersetTestCase):
 
         result = strategy.get_payloads()
         expected = []
-        self.assertEqual(result, expected)
+        assert result == expected
 
         # tag first slice
         dash = self.get_dash_by_slug("unicode-test")
@@ -139,10 +140,10 @@ class TestCacheWarmUp(SupersetTestCase):
         db.session.commit()
 
         result = strategy.get_payloads()
-        self.assertCountEqual(result, tag2_urls)
+        self.assertCountEqual(result, tag2_urls)  # noqa: PT009
 
         strategy = DashboardTagsStrategy(["tag1", "tag2"])
 
         result = strategy.get_payloads()
         expected = tag1_urls + tag2_urls
-        self.assertCountEqual(result, expected)
+        self.assertCountEqual(result, expected)  # noqa: PT009

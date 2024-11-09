@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   isFeatureEnabled,
   FeatureFlag,
@@ -46,7 +46,7 @@ import {
   loadingCardCount,
   mq,
 } from 'src/views/CRUD/utils';
-import { AntdSwitch } from 'src/components';
+import { Switch } from 'src/components/Switch';
 import getBootstrapData from 'src/utils/getBootstrapData';
 import { TableTab } from 'src/views/CRUD/types';
 import SubMenu, { SubMenuProps } from 'src/features/home/SubMenu';
@@ -218,7 +218,7 @@ function Welcome({ user, addDangerToast }: WelcomeProps) {
   }, []);
 
   useEffect(() => {
-    if (!otherTabFilters) {
+    if (!otherTabFilters || WelcomeMainExtension) {
       return;
     }
     const activeTab = getItem(LocalStorageKeys.HomepageActivityFilter, null);
@@ -340,7 +340,7 @@ function Welcome({ user, addDangerToast }: WelcomeProps) {
         name: (
           <WelcomeNav>
             <div className="switch">
-              <AntdSwitch checked={checked} onClick={handleToggle} />
+              <Switch checked={checked} onClick={handleToggle} />
               <span>{t('Thumbnails')}</span>
             </div>
           </WelcomeNav>

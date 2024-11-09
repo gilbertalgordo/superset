@@ -16,8 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, {
+import {
   forwardRef,
+  Key,
   ReactNode,
   RefObject,
   useCallback,
@@ -38,7 +39,6 @@ import {
   useTheme,
 } from '@superset-ui/core';
 import { RootState } from 'src/dashboard/types';
-import { findPermission } from 'src/utils/findPermission';
 import { Menu } from 'src/components/Menu';
 import { AntdDropdown as Dropdown } from 'src/components/index';
 import { updateDataMask } from 'src/dataMask/actions';
@@ -46,6 +46,7 @@ import { DrillDetailMenuItems } from '../DrillDetail';
 import { getMenuAdjustedY } from '../utils';
 import { MenuItemTooltip } from '../DisabledMenuItemTooltip';
 import { DrillByMenuItems } from '../DrillBy/DrillByMenuItems';
+import { usePermissions } from './usePermissions';
 
 export enum ContextMenuItem {
   CrossFilter,
@@ -87,20 +88,12 @@ const ChartContextMenu = (
 ) => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const canExplore = useSelector((state: RootState) =>
-    findPermission('can_explore', 'Superset', state.user?.roles),
-  );
-  const canWriteExploreFormData = useSelector((state: RootState) =>
-    findPermission('can_write', 'ExploreFormDataRestApi', state.user?.roles),
-  );
-  const canDatasourceSamples = useSelector((state: RootState) =>
-    findPermission('can_samples', 'Datasource', state.user?.roles),
-  );
-  const canDrillBy = canExplore && canWriteExploreFormData;
-  const canDrillToDetail = canExplore && canDatasourceSamples;
+  const { canDrillToDetail, canDrillBy, canDownload } = usePermissions();
+
   const crossFiltersEnabled = useSelector<RootState, boolean>(
     ({ dashboardInfo }) => dashboardInfo.crossFiltersEnabled,
   );
+  const [openKeys, setOpenKeys] = useState<Key[]>([]);
 
   const isDisplayed = (item: ContextMenuItem) =>
     displayedItems === ContextMenuItem.All ||
@@ -251,6 +244,9 @@ const ChartContextMenu = (
         formData={formData}
         contextMenuY={clientY}
         submenuIndex={submenuIndex}
+        canDownload={canDownload}
+        open={openKeys.includes('drill-by-submenu')}
+        key="drill-by-submenu"
         {...(additionalConfig?.drillBy || {})}
       />,
     );
@@ -285,7 +281,13 @@ const ChartContextMenu = (
   return ReactDOM.createPortal(
     <Dropdown
       overlay={
-        <Menu className="chart-context-menu" data-test="chart-context-menu">
+        <Menu
+          className="chart-context-menu"
+          data-test="chart-context-menu"
+          onOpenChange={openKeys => {
+            setOpenKeys(openKeys);
+          }}
+        >
           {menuItems.length ? (
             menuItems
           ) : (

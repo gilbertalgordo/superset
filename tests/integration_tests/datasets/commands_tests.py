@@ -42,12 +42,12 @@ from superset.utils.core import get_example_default_schema, override_user
 from superset.utils.database import get_example_database
 from tests.integration_tests.base_tests import SupersetTestCase
 from tests.integration_tests.fixtures.birth_names_dashboard import (
-    load_birth_names_dashboard_with_slices,
-    load_birth_names_data,
+    load_birth_names_dashboard_with_slices,  # noqa: F401
+    load_birth_names_data,  # noqa: F401
 )
 from tests.integration_tests.fixtures.energy_dashboard import (
-    load_energy_table_data,
-    load_energy_table_with_slice,
+    load_energy_table_data,  # noqa: F401
+    load_energy_table_with_slice,  # noqa: F401
 )
 from tests.integration_tests.fixtures.importexport import (
     database_config,
@@ -58,8 +58,8 @@ from tests.integration_tests.fixtures.importexport import (
     dataset_ui_export,
 )
 from tests.integration_tests.fixtures.world_bank_dashboard import (
-    load_world_bank_dashboard_with_slices,
-    load_world_bank_data,
+    load_world_bank_dashboard_with_slices,  # noqa: F401
+    load_world_bank_data,  # noqa: F401
 )
 
 
@@ -95,6 +95,7 @@ class TestExportDatasetsCommand(SupersetTestCase):
 
         assert metadata == {
             "cache_timeout": None,
+            "catalog": None,
             "columns": [
                 {
                     "column_name": "source",
@@ -224,6 +225,7 @@ class TestExportDatasetsCommand(SupersetTestCase):
             "default_endpoint",
             "offset",
             "cache_timeout",
+            "catalog",
             "schema",
             "sql",
             "params",
@@ -341,8 +343,9 @@ class TestImportDatasetsCommand(SupersetTestCase):
 
     @patch("superset.utils.core.g")
     @patch("superset.security.manager.g")
+    @patch("superset.commands.database.importers.v1.utils.add_permissions")
     @pytest.mark.usefixtures("load_energy_table_with_slice")
-    def test_import_v1_dataset(self, sm_g, utils_g):
+    def test_import_v1_dataset(self, mock_add_permissions, sm_g, utils_g):
         """Test that we can import a dataset"""
         admin = sm_g.user = utils_g.user = security_manager.find_user("admin")
         contents = {
@@ -409,7 +412,8 @@ class TestImportDatasetsCommand(SupersetTestCase):
         db.session.commit()
 
     @patch("superset.security.manager.g")
-    def test_import_v1_dataset_multiple(self, mock_g):
+    @patch("superset.commands.database.importers.v1.utils.add_permissions")
+    def test_import_v1_dataset_multiple(self, mock_add_permissions, mock_g):
         """Test that a dataset can be imported multiple times"""
         mock_g.user = security_manager.find_user("admin")
 
@@ -450,7 +454,8 @@ class TestImportDatasetsCommand(SupersetTestCase):
         db.session.delete(dataset.database)
         db.session.commit()
 
-    def test_import_v1_dataset_validation(self):
+    @patch("superset.commands.database.importers.v1.utils.add_permissions")
+    def test_import_v1_dataset_validation(self, mock_add_permissions):
         """Test different validations applied when importing a dataset"""
         # metadata.yaml must be present
         contents = {
@@ -500,7 +505,8 @@ class TestImportDatasetsCommand(SupersetTestCase):
         }
 
     @patch("superset.security.manager.g")
-    def test_import_v1_dataset_existing_database(self, mock_g):
+    @patch("superset.commands.database.importers.v1.utils.add_permissions")
+    def test_import_v1_dataset_existing_database(self, mock_add_permissions, mock_g):
         """Test that a dataset can be imported when the database already exists"""
         mock_g.user = security_manager.find_user("admin")
 
@@ -581,8 +587,8 @@ class TestCreateDatasetCommand(SupersetTestCase):
                 .filter_by(table_name="test_create_dataset_command")
                 .one()
             )
-            self.assertEqual(table, fetched_table)
-            self.assertEqual([owner.username for owner in table.owners], ["admin"])
+            assert table == fetched_table
+            assert [owner.username for owner in table.owners] == ["admin"]
 
         db.session.delete(table)
         with examples_db.get_sqla_engine() as engine:
@@ -620,7 +626,7 @@ class TestDatasetWarmUpCacheCommand(SupersetTestCase):
         results = DatasetWarmUpCacheCommand(
             get_example_database().database_name, "birth_names", None, None
         ).run()
-        self.assertEqual(len(results), len(birth_charts))
+        assert len(results) == len(birth_charts)
         for chart_result in results:
             assert "chart_id" in chart_result
             assert "viz_error" in chart_result

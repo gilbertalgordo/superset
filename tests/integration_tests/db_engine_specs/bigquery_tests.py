@@ -27,8 +27,8 @@ from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.sql_parse import Table
 from tests.integration_tests.db_engine_specs.base_tests import TestDbEngineSpec
 from tests.integration_tests.fixtures.birth_names_dashboard import (
-    load_birth_names_dashboard_with_slices,
-    load_birth_names_data,
+    load_birth_names_dashboard_with_slices,  # noqa: F401
+    load_birth_names_data,  # noqa: F401
 )
 
 
@@ -45,7 +45,7 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
         }
         for original, expected in test_cases.items():
             actual = BigQueryEngineSpec.make_label_compatible(column(original).name)
-            self.assertEqual(actual, expected)
+            assert actual == expected
 
     def test_timegrain_expressions(self):
         """
@@ -63,7 +63,7 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
             actual = BigQueryEngineSpec.get_timestamp_expr(
                 col=col, pdf=None, time_grain="PT1H"
             )
-            self.assertEqual(str(actual), expected)
+            assert str(actual) == expected
 
     def test_custom_minute_timegrain_expressions(self):
         """
@@ -104,24 +104,25 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
         data1 = [(1, "foo")]
         with mock.patch.object(BaseEngineSpec, "fetch_data", return_value=data1):
             result = BigQueryEngineSpec.fetch_data(None, 0)
-        self.assertEqual(result, data1)
+        assert result == data1
 
         data2 = [Row(1), Row(2)]
         with mock.patch.object(BaseEngineSpec, "fetch_data", return_value=data2):
             result = BigQueryEngineSpec.fetch_data(None, 0)
-        self.assertEqual(result, [1, 2])
+        assert result == [1, 2]
 
-    def test_extra_table_metadata(self):
+    def test_get_extra_table_metadata(self):
         """
         DB Eng Specs (bigquery): Test extra table metadata
         """
         database = mock.Mock()
         # Test no indexes
         database.get_indexes = mock.MagicMock(return_value=None)
-        result = BigQueryEngineSpec.extra_table_metadata(
-            database, "some_table", "some_schema"
+        result = BigQueryEngineSpec.get_extra_table_metadata(
+            database,
+            Table("some_table", "some_schema"),
         )
-        self.assertEqual(result, {})
+        assert result == {}
 
         index_metadata = [
             {
@@ -138,10 +139,11 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
             "clustering": {"cols": [["c_col1", "c_col2", "c_col3"]]},
         }
         database.get_indexes = mock.MagicMock(return_value=index_metadata)
-        result = BigQueryEngineSpec.extra_table_metadata(
-            database, "some_table", "some_schema"
+        result = BigQueryEngineSpec.get_extra_table_metadata(
+            database,
+            Table("some_table", "some_schema"),
         )
-        self.assertEqual(result, expected_result)
+        assert result == expected_result
 
     def test_get_indexes(self):
         database = mock.Mock()
@@ -163,8 +165,7 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
             BigQueryEngineSpec.get_indexes(
                 database,
                 inspector,
-                table_name,
-                schema,
+                Table(table_name, schema),
             )
             == []
         )
@@ -182,8 +183,7 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
         assert BigQueryEngineSpec.get_indexes(
             database,
             inspector,
-            table_name,
-            schema,
+            Table(table_name, schema),
         ) == [
             {
                 "name": "partition",
@@ -205,8 +205,7 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
         assert BigQueryEngineSpec.get_indexes(
             database,
             inspector,
-            table_name,
-            schema,
+            Table(table_name, schema),
         ) == [
             {
                 "name": "partition",
@@ -337,11 +336,11 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
             )
         ]
 
-        msg = 'Syntax error: Expected end of input but got identifier "fromm"'
+        msg = 'Syntax error: Expected end of input but got identifier "from_"'
         result = BigQueryEngineSpec.extract_errors(Exception(msg))
         assert result == [
             SupersetError(
-                message='Please check your query for syntax errors at or near "fromm". Then, try running your query again.',
+                message='Please check your query for syntax errors at or near "from_". Then, try running your query again.',
                 error_type=SupersetErrorType.SYNTAX_ERROR,
                 level=ErrorLevel.ERROR,
                 extra={
@@ -381,4 +380,4 @@ class TestBigQueryDbEngineSpec(TestDbEngineSpec):
             "orderby": [["gender_cc", True]],
         }
         sql = table.get_query_str(query_obj)
-        assert "ORDER BY\n  `gender_cc` ASC" in sql
+        assert "ORDER BY `gender_cc` ASC" in sql

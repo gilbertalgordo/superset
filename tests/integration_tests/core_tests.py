@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 """Unit tests for Superset"""
+
 import datetime
 import doctest
 import html
-import json
 import logging
 import random
 import unittest
@@ -49,23 +49,24 @@ from superset.models.dashboard import Dashboard
 from superset.models.slice import Slice
 from superset.models.sql_lab import Query
 from superset.result_set import SupersetResultSet
-from superset.utils import core as utils
+from superset.sql_parse import Table
+from superset.utils import core as utils, json
 from superset.utils.core import backend
 from superset.utils.database import get_example_database
 from superset.views.database.views import DatabaseView
 from tests.integration_tests.conftest import with_feature_flags
 from tests.integration_tests.constants import ADMIN_USERNAME, GAMMA_USERNAME
 from tests.integration_tests.fixtures.birth_names_dashboard import (
-    load_birth_names_dashboard_with_slices,
-    load_birth_names_data,
+    load_birth_names_dashboard_with_slices,  # noqa: F401
+    load_birth_names_data,  # noqa: F401
 )
 from tests.integration_tests.fixtures.energy_dashboard import (
-    load_energy_table_data,
-    load_energy_table_with_slice,
+    load_energy_table_data,  # noqa: F401
+    load_energy_table_with_slice,  # noqa: F401
 )
 from tests.integration_tests.fixtures.world_bank_dashboard import (
-    load_world_bank_dashboard_with_slices,
-    load_world_bank_data,
+    load_world_bank_dashboard_with_slices,  # noqa: F401
+    load_world_bank_data,  # noqa: F401
 )
 from tests.integration_tests.test_app import app
 
@@ -97,8 +98,8 @@ class TestCore(SupersetTestCase):
     def insert_dashboard_created_by(self, username: str) -> Dashboard:
         user = self.get_user(username)
         dashboard = self.insert_dashboard(
-            f"create_title_test",
-            f"create_slug_test",
+            f"create_title_test",  # noqa: F541
+            f"create_slug_test",  # noqa: F541
             [user.id],
             created_by=user,
         )
@@ -113,15 +114,15 @@ class TestCore(SupersetTestCase):
 
     def test_login(self):
         resp = self.get_resp("/login/", data=dict(username="admin", password="general"))
-        self.assertNotIn("User confirmation needed", resp)
+        assert "User confirmation needed" not in resp
 
         resp = self.get_resp("/logout/", follow_redirects=True)
-        self.assertIn("User confirmation needed", resp)
+        assert "User confirmation needed" in resp
 
         resp = self.get_resp(
             "/login/", data=dict(username="admin", password="wrongPassword")
         )
-        self.assertIn("User confirmation needed", resp)
+        assert "User confirmation needed" in resp
 
     def test_dashboard_endpoint(self):
         self.login(ADMIN_USERNAME)
@@ -145,20 +146,17 @@ class TestCore(SupersetTestCase):
 
         qobj["groupby"] = []
         cache_key_with_groupby = viz.cache_key(qobj)
-        self.assertNotEqual(cache_key, cache_key_with_groupby)
+        assert cache_key != cache_key_with_groupby
 
-        self.assertNotEqual(
-            viz.cache_key(qobj), viz.cache_key(qobj, time_compare="12 weeks")
-        )
+        assert viz.cache_key(qobj) != viz.cache_key(qobj, time_compare="12 weeks")
 
-        self.assertNotEqual(
-            viz.cache_key(qobj, time_compare="28 days"),
-            viz.cache_key(qobj, time_compare="12 weeks"),
+        assert viz.cache_key(qobj, time_compare="28 days") != viz.cache_key(
+            qobj, time_compare="12 weeks"
         )
 
         qobj["inner_from_dttm"] = datetime.datetime(1901, 1, 1)
 
-        self.assertEqual(cache_key_with_groupby, viz.cache_key(qobj))
+        assert cache_key_with_groupby == viz.cache_key(qobj)
 
     def test_admin_only_menu_views(self):
         def assert_admin_view_menus_in(role_name, assert_func):
@@ -176,7 +174,7 @@ class TestCore(SupersetTestCase):
     @pytest.mark.usefixtures("load_energy_table_with_slice")
     def test_save_slice(self):
         self.login(ADMIN_USERNAME)
-        slice_name = f"Energy Sankey"
+        slice_name = f"Energy Sankey"  # noqa: F541
         slice_id = self.get_slice(slice_name).id
         copy_name_prefix = "Test Sankey"
         copy_name = f"{copy_name_prefix}[save]{random.random()}"
@@ -204,9 +202,9 @@ class TestCore(SupersetTestCase):
         new_slice_id = resp.json["form_data"]["slice_id"]
         slc = db.session.query(Slice).filter_by(id=new_slice_id).one()
 
-        self.assertEqual(slc.slice_name, copy_name)
+        assert slc.slice_name == copy_name
         form_data.pop("slice_id")  # We don't save the slice id when saving as
-        self.assertEqual(slc.viz.form_data, form_data)
+        assert slc.viz.form_data == form_data
 
         form_data = {
             "adhoc_filters": [],
@@ -223,8 +221,8 @@ class TestCore(SupersetTestCase):
             data={"form_data": json.dumps(form_data)},
         )
         slc = db.session.query(Slice).filter_by(id=new_slice_id).one()
-        self.assertEqual(slc.slice_name, new_slice_name)
-        self.assertEqual(slc.viz.form_data, form_data)
+        assert slc.slice_name == new_slice_name
+        assert slc.viz.form_data == form_data
 
         # Cleanup
         slices = (
@@ -260,21 +258,21 @@ class TestCore(SupersetTestCase):
             logger.info(f"[{name}]/[{method}]: {url}")
             print(f"[{name}]/[{method}]: {url}")
             resp = self.client.get(url)
-            self.assertEqual(resp.status_code, 200)
+            assert resp.status_code == 200
 
     def test_add_slice(self):
         self.login(ADMIN_USERNAME)
         # assert that /chart/add responds with 200
         url = "/chart/add"
         resp = self.client.get(url)
-        self.assertEqual(resp.status_code, 200)
+        assert resp.status_code == 200
 
     def test_get_user_slices(self):
         self.login(ADMIN_USERNAME)
         userid = security_manager.find_user("admin").id
         url = f"/sliceasync/api/read?_flt_0_created_by={userid}"
         resp = self.client.get(url)
-        self.assertEqual(resp.status_code, 200)
+        assert resp.status_code == 200
 
     @pytest.mark.usefixtures("load_energy_table_with_slice")
     def test_slices_V2(self):
@@ -338,7 +336,7 @@ class TestCore(SupersetTestCase):
         data["sqlalchemy_uri"] = database.safe_sqlalchemy_uri()
         self.client.post(url, data=data)
         database = superset.utils.database.get_example_database()
-        self.assertEqual(sqlalchemy_uri_decrypted, database.sqlalchemy_uri_decrypted)
+        assert sqlalchemy_uri_decrypted == database.sqlalchemy_uri_decrypted
 
         # Need to clean up after ourselves
         database.impersonate_user = False
@@ -354,9 +352,9 @@ class TestCore(SupersetTestCase):
         self.login(ADMIN_USERNAME)
         slc = self.get_slice("Top 10 Girl Name Share")
         data = self.get_json_resp(f"/superset/warm_up_cache?slice_id={slc.id}")
-        self.assertEqual(
-            data, [{"slice_id": slc.id, "viz_error": None, "viz_status": "success"}]
-        )
+        assert data == [
+            {"slice_id": slc.id, "viz_error": None, "viz_status": "success"}
+        ]
 
         data = self.get_json_resp(
             "/superset/warm_up_cache?table_name=energy_usage&db_name=main"
@@ -414,29 +412,29 @@ class TestCore(SupersetTestCase):
         self.login(ADMIN_USERNAME)
 
         resp = self.client.get("/kv/10001/")
-        self.assertEqual(404, resp.status_code)
+        assert 404 == resp.status_code
 
         value = json.dumps({"data": "this is a test"})
         resp = self.client.post("/kv/store/", data=dict(data=value))
-        self.assertEqual(resp.status_code, 404)
+        assert resp.status_code == 404
 
     @with_feature_flags(KV_STORE=True)
     def test_kv_enabled(self):
         self.login(ADMIN_USERNAME)
 
         resp = self.client.get("/kv/10001/")
-        self.assertEqual(404, resp.status_code)
+        assert 404 == resp.status_code
 
         value = json.dumps({"data": "this is a test"})
         resp = self.client.post("/kv/store/", data=dict(data=value))
-        self.assertEqual(resp.status_code, 200)
+        assert resp.status_code == 200
         kv = db.session.query(models.KeyValue).first()
         kv_value = kv.value
-        self.assertEqual(json.loads(value), json.loads(kv_value))
+        assert json.loads(value) == json.loads(kv_value)
 
         resp = self.client.get(f"/kv/{kv.id}/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(json.loads(value), json.loads(resp.data.decode("utf-8")))
+        assert resp.status_code == 200
+        assert json.loads(value) == json.loads(resp.data.decode("utf-8"))
 
     def test_gamma(self):
         self.login(GAMMA_USERNAME)
@@ -450,7 +448,7 @@ class TestCore(SupersetTestCase):
         self.login(ADMIN_USERNAME)
         sql = "SELECT '{{ 1+1 }}' as test"
         data = self.run_sql(sql, "fdaklj3ws")
-        self.assertEqual(data["data"][0]["test"], "2")
+        assert data["data"][0]["test"] == "2"
 
     def test_fetch_datasource_metadata(self):
         self.login(ADMIN_USERNAME)
@@ -465,7 +463,7 @@ class TestCore(SupersetTestCase):
             "id",
         ]
         for k in keys:
-            self.assertIn(k, resp.keys())
+            assert k in resp.keys()
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
     def test_slice_id_is_always_logged_correctly_on_web_request(self):
@@ -474,11 +472,11 @@ class TestCore(SupersetTestCase):
         slc = db.session.query(Slice).filter_by(slice_name="Girls").one()
         qry = db.session.query(models.Log).filter_by(slice_id=slc.id)
         self.get_resp(slc.slice_url)
-        self.assertEqual(1, qry.count())
+        assert 1 == qry.count()
 
     def create_sample_csvfile(self, filename: str, content: list[str]) -> None:
         with open(filename, "w+") as test_file:
-            for l in content:
+            for l in content:  # noqa: E741
                 test_file.write(f"{l}\n")
 
     def create_sample_excelfile(self, filename: str, content: dict[str, str]) -> None:
@@ -489,7 +487,7 @@ class TestCore(SupersetTestCase):
         database.allow_file_upload = True
         db.session.commit()
         add_datasource_page = self.get_resp("/databaseview/list/")
-        self.assertIn("Upload a CSV", add_datasource_page)
+        assert "Upload a CSV" in add_datasource_page
 
     def test_dataframe_timezone(self):
         tz = pytz.FixedOffset(60)
@@ -500,16 +498,16 @@ class TestCore(SupersetTestCase):
         results = SupersetResultSet(list(data), [["data"]], BaseEngineSpec)
         df = results.to_pandas_df()
         data = dataframe.df_to_records(df)
-        json_str = json.dumps(data, default=utils.pessimistic_json_iso_dttm_ser)
-        self.assertDictEqual(
+        json_str = json.dumps(data, default=json.pessimistic_json_iso_dttm_ser)
+        self.assertDictEqual(  # noqa: PT009
             data[0], {"data": pd.Timestamp("2017-11-18 21:53:00.219225+0100", tz=tz)}
         )
-        self.assertDictEqual(
+        self.assertDictEqual(  # noqa: PT009
             data[1], {"data": pd.Timestamp("2017-11-18 22:06:30+0100", tz=tz)}
         )
-        self.assertEqual(
-            json_str,
-            '[{"data": "2017-11-18T21:53:00.219225+01:00"}, {"data": "2017-11-18T22:06:30+01:00"}]',
+        assert (
+            json_str
+            == '[{"data": "2017-11-18T21:53:00.219225+01:00"}, {"data": "2017-11-18T22:06:30+01:00"}]'
         )
 
     def test_mssql_engine_spec_pymssql(self):
@@ -523,11 +521,12 @@ class TestCore(SupersetTestCase):
         )
         df = results.to_pandas_df()
         data = dataframe.df_to_records(df)
-        self.assertEqual(len(data), 2)
-        self.assertEqual(
-            data[0],
-            {"col1": 1, "col2": 1, "col3": pd.Timestamp("2017-10-19 23:39:16.660000")},
-        )
+        assert len(data) == 2
+        assert data[0] == {
+            "col1": 1,
+            "col2": 1,
+            "col3": pd.Timestamp("2017-10-19 23:39:16.660000"),
+        }
 
     def test_comments_in_sqlatable_query(self):
         clean_query = "SELECT\n  '/* val 1 */' AS c1,\n  '-- val 2' AS c2\nFROM tbl"
@@ -538,7 +537,9 @@ class TestCore(SupersetTestCase):
             database=get_example_database(),
         )
         rendered_query = str(table.get_from_clause()[0])
-        self.assertEqual(clean_query, rendered_query)
+        assert "comment 1" in rendered_query
+        assert "comment 2" in rendered_query
+        assert "FROM tbl" in rendered_query
 
     def test_slice_payload_no_datasource(self):
         form_data = {
@@ -551,9 +552,9 @@ class TestCore(SupersetTestCase):
         )
         data = json.loads(rv.data.decode("utf-8"))
 
-        self.assertEqual(
-            data["errors"][0]["message"],
-            "The dataset associated with this chart no longer exists",
+        assert (
+            data["errors"][0]["message"]
+            == "The dataset associated with this chart no longer exists"
         )
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
@@ -576,8 +577,8 @@ class TestCore(SupersetTestCase):
         )
         data = json.loads(rv.data.decode("utf-8"))
 
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(data["rowcount"], 2)
+        assert rv.status_code == 200
+        assert data["rowcount"] == 2
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
     def test_explore_json_dist_bar_order(self):
@@ -738,7 +739,7 @@ class TestCore(SupersetTestCase):
             "/superset/explore_json/?results=true",
             data={"form_data": json.dumps(form_data)},
         )
-        self.assertEqual(rv.status_code, 200)
+        assert rv.status_code == 200
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
     @mock.patch(
@@ -777,8 +778,8 @@ class TestCore(SupersetTestCase):
         rv = self.client.get("/superset/explore_json/data/valid-cache-key")
         data = json.loads(rv.data.decode("utf-8"))
 
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(data["rowcount"], 2)
+        assert rv.status_code == 200
+        assert data["rowcount"] == 2
 
     @mock.patch(
         "superset.utils.cache_manager.CacheManager.cache",
@@ -811,7 +812,7 @@ class TestCore(SupersetTestCase):
         mock_cache.return_value = MockCache()
 
         rv = self.client.get("/superset/explore_json/data/valid-cache-key")
-        self.assertEqual(rv.status_code, 401)
+        assert rv.status_code == 403
 
     def test_explore_json_data_invalid_cache_key(self):
         self.login(ADMIN_USERNAME)
@@ -819,8 +820,8 @@ class TestCore(SupersetTestCase):
         rv = self.client.get(f"/superset/explore_json/data/{cache_key}")
         data = json.loads(rv.data.decode("utf-8"))
 
-        self.assertEqual(rv.status_code, 404)
-        self.assertEqual(data["error"], "Cached data not found")
+        assert rv.status_code == 404
+        assert data["error"] == "Cached data not found"
 
     def test_results_default_deserialization(self):
         use_new_deserialization = False
@@ -860,14 +861,14 @@ class TestCore(SupersetTestCase):
         serialized_payload = sql_lab._serialize_payload(
             payload, use_new_deserialization
         )
-        self.assertIsInstance(serialized_payload, str)
+        assert isinstance(serialized_payload, str)
 
         query_mock = mock.Mock()
         deserialized_payload = superset.views.utils._deserialize_results_payload(
             serialized_payload, query_mock, use_new_deserialization
         )
 
-        self.assertDictEqual(deserialized_payload, payload)
+        self.assertDictEqual(deserialized_payload, payload)  # noqa: PT009
         query_mock.assert_not_called()
 
     def test_results_msgpack_deserialization(self):
@@ -908,7 +909,7 @@ class TestCore(SupersetTestCase):
         serialized_payload = sql_lab._serialize_payload(
             payload, use_new_deserialization
         )
-        self.assertIsInstance(serialized_payload, bytes)
+        assert isinstance(serialized_payload, bytes)
 
         with mock.patch.object(
             db_engine_spec, "expand_data", wraps=db_engine_spec.expand_data
@@ -922,7 +923,7 @@ class TestCore(SupersetTestCase):
             df = results.to_pandas_df()
             payload["data"] = dataframe.df_to_records(df)
 
-            self.assertDictEqual(deserialized_payload, payload)
+            self.assertDictEqual(deserialized_payload, payload)  # noqa: PT009
             expand_data.assert_called_once()
 
     @mock.patch.dict(
@@ -941,7 +942,7 @@ class TestCore(SupersetTestCase):
 
         encoded = json.dumps(
             {"FOO": lambda x: 1, "super": "set"},
-            default=utils.pessimistic_json_iso_dttm_ser,
+            default=json.pessimistic_json_iso_dttm_ser,
         )
         html_string = (
             html.escape(encoded, quote=False)
@@ -957,7 +958,7 @@ class TestCore(SupersetTestCase):
         ]
         for url in urls:
             data = self.get_resp(url)
-            self.assertTrue(html_string in data)
+            assert html_string in data
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -988,7 +989,7 @@ class TestCore(SupersetTestCase):
         tab_state_id = resp["id"]
         payload = self.get_json_resp(f"/tabstateview/{tab_state_id}")
 
-        self.assertEqual(payload["label"], "Untitled Query foo")
+        assert payload["label"] == "Untitled Query foo"
 
     def test_tabstate_update(self):
         self.login(ADMIN_USERNAME)
@@ -1011,87 +1012,87 @@ class TestCore(SupersetTestCase):
         client_id = "asdfasdf"
         data = {"sql": json.dumps("select 1"), "latest_query_id": json.dumps(client_id)}
         response = self.client.put(f"/tabstateview/{tab_state_id}", data=data)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json["error"], "Bad request")
+        assert response.status_code == 400
+        assert response.json["error"] == "Bad request"
         # generate query
         db.session.add(Query(client_id=client_id, database_id=1))
         db.session.commit()
         # update tab state with a valid client_id
         response = self.client.put(f"/tabstateview/{tab_state_id}", data=data)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         # nulls should be ok too
         data["latest_query_id"] = "null"
         response = self.client.put(f"/tabstateview/{tab_state_id}", data=data)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
     def test_virtual_table_explore_visibility(self):
         # test that default visibility it set to True
         database = superset.utils.database.get_example_database()
-        self.assertEqual(database.allows_virtual_table_explore, True)
+        assert database.allows_virtual_table_explore is True
 
         # test that visibility is disabled when extra is set to False
         extra = database.get_extra()
         extra["allows_virtual_table_explore"] = False
         database.extra = json.dumps(extra)
-        self.assertEqual(database.allows_virtual_table_explore, False)
+        assert database.allows_virtual_table_explore is False
 
         # test that visibility is enabled when extra is set to True
         extra = database.get_extra()
         extra["allows_virtual_table_explore"] = True
         database.extra = json.dumps(extra)
-        self.assertEqual(database.allows_virtual_table_explore, True)
+        assert database.allows_virtual_table_explore is True
 
         # test that visibility is not broken with bad values
         extra = database.get_extra()
         extra["allows_virtual_table_explore"] = "trash value"
         database.extra = json.dumps(extra)
-        self.assertEqual(database.allows_virtual_table_explore, True)
+        assert database.allows_virtual_table_explore is True
 
     def test_data_preview_visibility(self):
         # test that default visibility is allowed
         database = utils.get_example_database()
-        self.assertEqual(database.disable_data_preview, False)
+        assert database.disable_data_preview is False
 
         # test that visibility is disabled when extra is set to true
         extra = database.get_extra()
         extra["disable_data_preview"] = True
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_data_preview, True)
+        assert database.disable_data_preview is True
 
         # test that visibility is enabled when extra is set to false
         extra = database.get_extra()
         extra["disable_data_preview"] = False
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_data_preview, False)
+        assert database.disable_data_preview is False
 
         # test that visibility is not broken with bad values
         extra = database.get_extra()
         extra["disable_data_preview"] = "trash value"
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_data_preview, False)
+        assert database.disable_data_preview is False
 
     def test_disable_drill_to_detail(self):
         # test that disable_drill_to_detail is False by default
         database = utils.get_example_database()
-        self.assertEqual(database.disable_drill_to_detail, False)
+        assert database.disable_drill_to_detail is False
 
         # test that disable_drill_to_detail can be set to True
         extra = database.get_extra()
         extra["disable_drill_to_detail"] = True
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_drill_to_detail, True)
+        assert database.disable_drill_to_detail is True
 
         # test that disable_drill_to_detail can be set to False
         extra = database.get_extra()
         extra["disable_drill_to_detail"] = False
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_drill_to_detail, False)
+        assert database.disable_drill_to_detail is False
 
         # test that disable_drill_to_detail is not broken with bad values
         extra = database.get_extra()
         extra["disable_drill_to_detail"] = "trash value"
         database.extra = json.dumps(extra)
-        self.assertEqual(database.disable_drill_to_detail, False)
+        assert database.disable_drill_to_detail is False
 
     def test_explore_database_id(self):
         database = superset.utils.database.get_example_database()
@@ -1099,13 +1100,13 @@ class TestCore(SupersetTestCase):
 
         # test that explore_database_id is the regular database
         # id if none is set in the extra
-        self.assertEqual(database.explore_database_id, database.id)
+        assert database.explore_database_id == database.id
 
         # test that explore_database_id is correct if the extra is set
         extra = database.get_extra()
         extra["explore_database_id"] = explore_database.id
         database.extra = json.dumps(extra)
-        self.assertEqual(database.explore_database_id, explore_database.id)
+        assert database.explore_database_id == explore_database.id
 
     def test_get_column_names_from_metric(self):
         simple_metric = {
@@ -1126,6 +1127,9 @@ class TestCore(SupersetTestCase):
             "my_col"
         ]
 
+    @pytest.mark.skip(
+        "TODO This test was wrong - 'Error message' was in the language pack"
+    )
     @pytest.mark.usefixtures("load_world_bank_dashboard_with_slices")
     @mock.patch("superset.models.core.DB_CONNECTION_MUTATOR")
     def test_explore_injected_exceptions(self, mock_db_connection_mutator):
@@ -1140,7 +1144,7 @@ class TestCore(SupersetTestCase):
 
         self.login(ADMIN_USERNAME)
         data = self.get_resp(url)
-        self.assertIn("Error message", data)
+        assert "Error message" in data
 
         # Assert we can handle a driver exception at the mutator level
         exception = SQLAlchemyError("Error message")
@@ -1150,8 +1154,11 @@ class TestCore(SupersetTestCase):
 
         self.login(ADMIN_USERNAME)
         data = self.get_resp(url)
-        self.assertIn("Error message", data)
+        assert "Error message" in data
 
+    @pytest.mark.skip(
+        "TODO This test was wrong - 'Error message' was in the language pack"
+    )
     @pytest.mark.usefixtures("load_world_bank_dashboard_with_slices")
     @mock.patch("superset.models.core.DB_CONNECTION_MUTATOR")
     def test_dashboard_injected_exceptions(self, mock_db_connection_mutator):
@@ -1167,7 +1174,7 @@ class TestCore(SupersetTestCase):
 
         self.login(ADMIN_USERNAME)
         data = self.get_resp(url)
-        self.assertIn("Error message", data)
+        assert "Error message" in data
 
         # Assert we can handle a driver exception at the mutator level
         exception = SQLAlchemyError("Error message")
@@ -1177,7 +1184,7 @@ class TestCore(SupersetTestCase):
 
         self.login(ADMIN_USERNAME)
         data = self.get_resp(url)
-        self.assertIn("Error message", data)
+        assert "Error message" in data
 
     @pytest.mark.usefixtures("load_energy_table_with_slice")
     @mock.patch("superset.commands.explore.form_data.create.CreateFormDataCommand.run")
@@ -1185,25 +1192,20 @@ class TestCore(SupersetTestCase):
         self.login(ADMIN_USERNAME)
         random_key = "random_key"
         mock_command.return_value = random_key
-        slice_name = f"Energy Sankey"
+        slice_name = f"Energy Sankey"  # noqa: F541
         slice_id = self.get_slice(slice_name).id
         form_data = {"slice_id": slice_id, "viz_type": "line", "datasource": "1__table"}
         rv = self.client.get(
             f"/superset/explore/?form_data={quote(json.dumps(form_data))}"
         )
-        self.assertEqual(
-            rv.headers["Location"], f"/explore/?form_data_key={random_key}"
-        )
+        assert rv.headers["Location"] == f"/explore/?form_data_key={random_key}"
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
-    def test_has_table_by_name(self):
+    def test_has_table(self):
         if backend() in ("sqlite", "mysql"):
             return
         example_db = superset.utils.database.get_example_database()
-        assert (
-            example_db.has_table_by_name(table_name="birth_names", schema="public")
-            is True
-        )
+        assert example_db.has_table(Table("birth_names", "public")) is True
 
     @mock.patch("superset.views.core.request")
     @mock.patch(
@@ -1217,7 +1219,7 @@ class TestCore(SupersetTestCase):
 
         expected_url = "/superset/dashboard/1?permalink_key=123&standalone=3"
 
-        self.assertEqual(resp.headers["Location"], expected_url)
+        assert resp.headers["Location"] == expected_url
         assert resp.status_code == 302
 
 

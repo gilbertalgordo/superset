@@ -25,7 +25,6 @@ import {
   waitFor,
 } from 'spec/helpers/testing-library';
 import { stateWithoutNativeFilters } from 'spec/fixtures/mockStore';
-import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { DynamicPluginProvider } from 'src/components/DynamicPlugins';
 import { testWithId } from 'src/utils/testUtils';
@@ -248,7 +247,7 @@ describe('VizTypeControl', () => {
     const visualizations = screen.getByTestId(getTestId('viz-row'));
     userEvent.click(within(visualizations).getByText('Bar Chart'));
 
-    expect(defaultProps.onChange).not.toBeCalled();
+    expect(defaultProps.onChange).not.toHaveBeenCalled();
     userEvent.dblClick(within(visualizations).getByText('Line Chart'));
 
     expect(defaultProps.onChange).toHaveBeenCalledWith(

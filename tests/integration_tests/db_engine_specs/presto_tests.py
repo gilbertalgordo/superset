@@ -20,12 +20,12 @@ from unittest import mock, skipUnless
 
 import pandas as pd
 from flask.ctx import AppContext
-from sqlalchemy import types
+from sqlalchemy import types  # noqa: F401
 from sqlalchemy.sql import select
 
 from superset.db_engine_specs.presto import PrestoEngineSpec
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
-from superset.sql_parse import ParsedQuery
+from superset.sql_parse import ParsedQuery, Table
 from superset.utils.database import get_example_database
 from tests.integration_tests.db_engine_specs.base_tests import TestDbEngineSpec
 
@@ -33,7 +33,7 @@ from tests.integration_tests.db_engine_specs.base_tests import TestDbEngineSpec
 class TestPrestoDbEngineSpec(TestDbEngineSpec):
     @skipUnless(TestDbEngineSpec.is_module_installed("pyhive"), "pyhive not installed")
     def test_get_datatype_presto(self):
-        self.assertEqual("STRING", PrestoEngineSpec.get_datatype("string"))
+        assert "STRING" == PrestoEngineSpec.get_datatype("string")
 
     def test_get_view_names_with_schema(self):
         database = mock.MagicMock()
@@ -78,15 +78,18 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
 
     def verify_presto_column(self, column, expected_results):
         inspector = mock.Mock()
-        inspector.engine.dialect.identifier_preparer.quote_identifier = mock.Mock()
+        preparer = inspector.engine.dialect.identifier_preparer
+        preparer.quote_identifier = preparer.quote = preparer.quote_schema = (
+            lambda x: f'"{x}"'
+        )
         row = mock.Mock()
         row.Column, row.Type, row.Null = column
         inspector.bind.execute.return_value.fetchall = mock.Mock(return_value=[row])
-        results = PrestoEngineSpec.get_columns(inspector, "", "")
-        self.assertEqual(len(expected_results), len(results))
+        results = PrestoEngineSpec.get_columns(inspector, Table("", ""))
+        assert len(expected_results) == len(results)
         for expected_result, result in zip(expected_results, results):
-            self.assertEqual(expected_result[0], result["column_name"])
-            self.assertEqual(expected_result[1], str(result["type"]))
+            assert expected_result[0] == result["column_name"]
+            assert expected_result[1] == str(result["type"])
 
     def test_presto_get_column(self):
         presto_column = ("column_name", "boolean", "")
@@ -189,8 +192,8 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
             },
         ]
         for actual_result, expected_result in zip(actual_results, expected_results):
-            self.assertEqual(actual_result.element.name, expected_result["column_name"])
-            self.assertEqual(actual_result.name, expected_result["label"])
+            assert actual_result.element.name == expected_result["column_name"]
+            assert actual_result.name == expected_result["label"]
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -257,9 +260,9 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
                 "is_dttm": False,
             }
         ]
-        self.assertEqual(actual_cols, expected_cols)
-        self.assertEqual(actual_data, expected_data)
-        self.assertEqual(actual_expanded_cols, expected_expanded_cols)
+        assert actual_cols == expected_cols
+        assert actual_data == expected_data
+        assert actual_expanded_cols == expected_expanded_cols
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -340,9 +343,9 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
                 "is_dttm": False,
             },
         ]
-        self.assertEqual(actual_cols, expected_cols)
-        self.assertEqual(actual_data, expected_data)
-        self.assertEqual(actual_expanded_cols, expected_expanded_cols)
+        assert actual_cols == expected_cols
+        assert actual_data == expected_data
+        assert actual_expanded_cols == expected_expanded_cols
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -424,9 +427,9 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
                 "is_dttm": False,
             },
         ]
-        self.assertEqual(actual_cols, expected_cols)
-        self.assertEqual(actual_data, expected_data)
-        self.assertEqual(actual_expanded_cols, expected_expanded_cols)
+        assert actual_cols == expected_cols
+        assert actual_data == expected_data
+        assert actual_expanded_cols == expected_expanded_cols
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -545,11 +548,11 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
                 "is_dttm": False,
             },
         ]
-        self.assertEqual(actual_cols, expected_cols)
-        self.assertEqual(actual_data, expected_data)
-        self.assertEqual(actual_expanded_cols, expected_expanded_cols)
+        assert actual_cols == expected_cols
+        assert actual_data == expected_data
+        assert actual_expanded_cols == expected_expanded_cols
 
-    def test_presto_extra_table_metadata(self):
+    def test_presto_get_extra_table_metadata(self):
         database = mock.Mock()
         database.get_indexes = mock.Mock(
             return_value=[{"column_names": ["ds", "hour"]}]
@@ -558,8 +561,9 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
         df = pd.DataFrame({"ds": ["01-01-19"], "hour": [1]})
         database.get_df = mock.Mock(return_value=df)
         PrestoEngineSpec.get_create_view = mock.Mock(return_value=None)
-        result = PrestoEngineSpec.extra_table_metadata(
-            database, "test_table", "test_schema"
+        result = PrestoEngineSpec.get_extra_table_metadata(
+            database,
+            Table("test_table", "test_schema"),
         )
         assert result["partitions"]["cols"] == ["ds", "hour"]
         assert result["partitions"]["latest"] == {"ds": "01-01-19", "hour": 1}
@@ -572,10 +576,13 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
         db.get_df = mock.Mock(return_value=df)
         columns = [{"name": "ds"}, {"name": "hour"}]
         result = PrestoEngineSpec.where_latest_partition(
-            "test_table", "test_schema", db, select(), columns
+            db,
+            Table("test_table", "test_schema"),
+            select(),
+            columns,
         )
         query_result = str(result.compile(compile_kwargs={"literal_binds": True}))
-        self.assertEqual("SELECT  \nWHERE ds = '01-01-19' AND hour = 1", query_result)
+        assert "SELECT  \nWHERE ds = '01-01-19' AND hour = 1" == query_result
 
     def test_query_cost_formatter(self):
         raw_cost = [
@@ -638,7 +645,7 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
                 "Network cost": "354 G",
             }
         ]
-        self.assertEqual(formatted_cost, expected)
+        assert formatted_cost == expected
 
     @mock.patch.dict(
         "superset.extensions.feature_flag_manager._feature_flags",
@@ -745,9 +752,9 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
             },
         ]
 
-        self.assertEqual(actual_cols, expected_cols)
-        self.assertEqual(actual_data, expected_data)
-        self.assertEqual(actual_expanded_cols, expected_expanded_cols)
+        assert actual_cols == expected_cols
+        assert actual_data == expected_data
+        assert actual_expanded_cols == expected_expanded_cols
 
     @mock.patch("superset.db_engine_specs.base.BaseEngineSpec.get_table_names")
     @mock.patch("superset.db_engine_specs.presto.PrestoEngineSpec.get_view_names")
@@ -794,14 +801,15 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
 
     def test_show_columns(self):
         inspector = mock.MagicMock()
-        inspector.engine.dialect.identifier_preparer.quote_identifier = (
+        preparer = inspector.engine.dialect.identifier_preparer
+        preparer.quote_identifier = preparer.quote = preparer.quote_schema = (
             lambda x: f'"{x}"'
         )
         inspector.bind.execute.return_value.fetchall = mock.MagicMock(
             return_value=["a", "b"]
         )
         table_name = "table_name"
-        result = PrestoEngineSpec._show_columns(inspector, table_name, None)
+        result = PrestoEngineSpec._show_columns(inspector, Table(table_name))
         assert result == ["a", "b"]
         inspector.bind.execute.assert_called_once_with(
             f'SHOW COLUMNS FROM "{table_name}"'
@@ -809,7 +817,8 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
 
     def test_show_columns_with_schema(self):
         inspector = mock.MagicMock()
-        inspector.engine.dialect.identifier_preparer.quote_identifier = (
+        preparer = inspector.engine.dialect.identifier_preparer
+        preparer.quote_identifier = preparer.quote = preparer.quote_schema = (
             lambda x: f'"{x}"'
         )
         inspector.bind.execute.return_value.fetchall = mock.MagicMock(
@@ -817,7 +826,7 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
         )
         table_name = "table_name"
         schema = "schema"
-        result = PrestoEngineSpec._show_columns(inspector, table_name, schema)
+        result = PrestoEngineSpec._show_columns(inspector, Table(table_name, schema))
         assert result == ["a", "b"]
         inspector.bind.execute.assert_called_once_with(
             f'SHOW COLUMNS FROM "{schema}"."{table_name}"'
@@ -845,9 +854,16 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
             {"col1": "val1"},
             {"col2": "val2"},
         ]
-        PrestoEngineSpec.select_star(database, table_name, engine, cols=cols)
+        PrestoEngineSpec.select_star(database, Table(table_name), engine, cols=cols)
         mock_select_star.assert_called_once_with(
-            database, table_name, engine, None, 100, False, True, True, cols
+            database,
+            Table(table_name),
+            engine,
+            100,
+            False,
+            True,
+            True,
+            cols,
         )
 
     @mock.patch("superset.db_engine_specs.presto.is_feature_enabled")
@@ -868,13 +884,16 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
             {"column_name": ".val2."},
         ]
         PrestoEngineSpec.select_star(
-            database, table_name, engine, show_cols=True, cols=cols
+            database,
+            Table(table_name),
+            engine,
+            show_cols=True,
+            cols=cols,
         )
         mock_select_star.assert_called_once_with(
             database,
-            table_name,
+            Table(table_name),
             engine,
-            None,
             100,
             True,
             True,
@@ -886,22 +905,26 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
         )
 
     def test_estimate_statement_cost(self):
+        mock_database = mock.MagicMock()
         mock_cursor = mock.MagicMock()
         estimate_json = {"a": "b"}
         mock_cursor.fetchone.return_value = [
             '{"a": "b"}',
         ]
         result = PrestoEngineSpec.estimate_statement_cost(
-            "SELECT * FROM brth_names", mock_cursor
+            mock_database,
+            "SELECT * FROM brth_names",
+            mock_cursor,
         )
         assert result == estimate_json
 
     def test_estimate_statement_cost_invalid_syntax(self):
+        mock_database = mock.MagicMock()
         mock_cursor = mock.MagicMock()
         mock_cursor.execute.side_effect = Exception()
         with self.assertRaises(Exception):
             PrestoEngineSpec.estimate_statement_cost(
-                "DROP TABLE brth_names", mock_cursor
+                mock_database, "DROP TABLE brth_names", mock_cursor
             )
 
     def test_get_create_view(self):
@@ -949,7 +972,7 @@ class TestPrestoDbEngineSpec(TestDbEngineSpec):
         result = PrestoEngineSpec._extract_error_message(exception)
         assert result == "name at location: msg"
 
-    def test_extract_error_message_db_errr(self):
+    def test_extract_error_message_db_error(self):
         from pyhive.exc import DatabaseError
 
         exception = DatabaseError({"message": "Err message"})
@@ -1171,7 +1194,7 @@ def test_get_catalog_names(app_context: AppContext) -> None:
     if database.backend != "presto":
         return
 
-    with database.get_inspector_with_context() as inspector:
+    with database.get_inspector() as inspector:
         assert PrestoEngineSpec.get_catalog_names(database, inspector) == [
             "jmx",
             "memory",
