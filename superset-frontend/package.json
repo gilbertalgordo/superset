@@ -333,7 +333,7 @@
     "mini-css-extract-plugin": "^2.9.0",
     "mock-socket": "^9.3.1",
     "moment-locales-webpack-plugin": "^1.2.0",
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^3.3.2",
     "open-cli": "^8.0.0",
     "po2json": "^0.4.5",
     "prettier": "3.3.3",
