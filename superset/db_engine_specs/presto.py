@@ -63,7 +63,6 @@ from superset.utils import core as utils, json
 from superset.utils.core import GenericDataType
 
 if TYPE_CHECKING:
-    # prevent circular imports
     from superset.models.core import Database
     from superset.sql_parse import Table
 
@@ -111,7 +110,7 @@ def get_children(column: ResultSetColumnType) -> list[ResultSetColumnType]:
 
     :param column: dictionary representing a Presto column
     :return: list of dictionaries representing children columns
-    """
+    """  # noqa: E501
     pattern = re.compile(r"(?P<type>\w+)\((?P<children>.*)\)")
     if not column["type"]:
         raise ValueError
@@ -256,8 +255,15 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
     _time_grain_expressions = {
         None: "{col}",
         TimeGrain.SECOND: "date_trunc('second', CAST({col} AS TIMESTAMP))",
+        TimeGrain.FIVE_SECONDS: "date_trunc('second', CAST({col} AS TIMESTAMP)) - interval '1' second * (second(CAST({col} AS TIMESTAMP)) % 5)",  # noqa: E501
+        TimeGrain.THIRTY_SECONDS: "date_trunc('second', CAST({col} AS TIMESTAMP)) - interval '1' second * (second(CAST({col} AS TIMESTAMP)) % 30)",  # noqa: E501
         TimeGrain.MINUTE: "date_trunc('minute', CAST({col} AS TIMESTAMP))",
+        TimeGrain.FIVE_MINUTES: "date_trunc('minute', CAST({col} AS TIMESTAMP)) - interval '1' minute * (minute(CAST({col} AS TIMESTAMP)) % 5)",  # noqa: E501
+        TimeGrain.TEN_MINUTES: "date_trunc('minute', CAST({col} AS TIMESTAMP)) - interval '1' minute * (minute(CAST({col} AS TIMESTAMP)) % 10)",  # noqa: E501
+        TimeGrain.FIFTEEN_MINUTES: "date_trunc('minute', CAST({col} AS TIMESTAMP)) - interval '1' minute * (minute(CAST({col} AS TIMESTAMP)) % 15)",  # noqa: E501
+        TimeGrain.HALF_HOUR: "date_trunc('minute', CAST({col} AS TIMESTAMP)) - interval '1' minute * (minute(CAST({col} AS TIMESTAMP)) % 30)",  # noqa: E501
         TimeGrain.HOUR: "date_trunc('hour', CAST({col} AS TIMESTAMP))",
+        TimeGrain.SIX_HOURS: "date_trunc('hour', CAST({col} AS TIMESTAMP)) - interval '1' hour * (hour(CAST({col} AS TIMESTAMP)) % 6)",  # noqa: E501
         TimeGrain.DAY: "date_trunc('day', CAST({col} AS TIMESTAMP))",
         TimeGrain.WEEK: "date_trunc('week', CAST({col} AS TIMESTAMP))",
         TimeGrain.MONTH: "date_trunc('month', CAST({col} AS TIMESTAMP))",
@@ -505,7 +511,7 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
                 if table.schema
                 else system_table_name
             )
-            partition_select_clause = f"SELECT * FROM {full_table_name}"
+            partition_select_clause = f"SELECT * FROM {full_table_name}"  # noqa: S608
 
         sql = dedent(
             f"""\
@@ -538,7 +544,7 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
             column.get("column_name"): column.get("type") for column in columns or []
         }
 
-        for col_name, value in zip(col_names, values):
+        for col_name, value in zip(col_names, values, strict=False):
             col_type = column_type_by_name.get(col_name)
 
             if isinstance(col_type, str):
@@ -657,7 +663,7 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
         if len(kwargs.keys()) != len(part_fields) - 1:
             # pylint: disable=consider-using-f-string
             msg = (
-                "A filter needs to be specified for {} out of the " "{} fields."
+                "A filter needs to be specified for {} out of the {} fields."
             ).format(len(part_fields) - 1, len(part_fields))
             raise SupersetTemplateException(msg)
 
@@ -761,7 +767,7 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
         return result
 
     @classmethod
-    def _parse_structural_column(  # pylint: disable=too-many-locals
+    def _parse_structural_column(  # pylint: disable=too-many-locals  # noqa: C901
         cls,
         parent_column_name: str,
         parent_data_type: str,
@@ -1132,7 +1138,7 @@ class PrestoEngineSpec(PrestoBaseEngineSpec):
         )
 
     @classmethod
-    def expand_data(  # pylint: disable=too-many-locals
+    def expand_data(  # pylint: disable=too-many-locals  # noqa: C901
         cls, columns: list[ResultSetColumnType], data: list[dict[Any, Any]]
     ) -> tuple[
         list[ResultSetColumnType], list[dict[Any, Any]], list[ResultSetColumnType]
@@ -1233,7 +1239,7 @@ class PrestoEngineSpec(PrestoBaseEngineSpec):
                     if isinstance(values, str):
                         values = cast(Optional[list[Any]], destringify(values))
                         row[name] = values
-                    for value, col in zip(values or [], expanded):
+                    for value, col in zip(values or [], expanded, strict=False):
                         row[col["column_name"]] = value
 
         data = [
@@ -1264,7 +1270,7 @@ class PrestoEngineSpec(PrestoBaseEngineSpec):
 
             metadata["partitions"] = {
                 "cols": sorted(indexes[0].get("column_names", [])),
-                "latest": dict(zip(col_names, latest_parts)),
+                "latest": dict(zip(col_names, latest_parts, strict=False)),
                 "partitionQuery": cls._partition_query(
                     table=table,
                     indexes=indexes,
