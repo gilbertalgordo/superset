@@ -16,7 +16,7 @@
     ]
   },
   "dependencies": {
-    "@applitools/eyes-cypress": "^3.44.9",
+    "@applitools/eyes-cypress": "^3.60.7",
     "@cypress/code-coverage": "^3.10.4",
     "@superset-ui/core": "^2.1.0",
     "brace": "^0.11.1",
@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/querystringify": "^2.0.0",
-    "cypress": "^11.2.0",
+    "cypress": "^15.17.0",
     "eslint-plugin-cypress": "^3.5.0",
     "tscw-config": "^1.1.2"
   }
