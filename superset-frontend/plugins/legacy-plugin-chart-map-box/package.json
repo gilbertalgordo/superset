@@ -29,7 +29,7 @@
     "@math.gl/web-mercator": "^4.1.0",
     "prop-types": "^15.8.1",
     "react-map-gl": "^6.1.19",
-    "supercluster": "^8.0.1"
+    "supercluster": "^9.0.0"
   },
   "peerDependencies": {
     "@superset-ui/chart-controls": "*",
